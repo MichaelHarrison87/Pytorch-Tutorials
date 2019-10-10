@@ -1,1 +1,4 @@
 .vscode
+*.tar.gz
+*.pth
+/60-Minute-Blitz/data

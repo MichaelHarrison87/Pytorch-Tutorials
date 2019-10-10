@@ -248,3 +248,87 @@ optimizer.step()    # Weight Update
 
 # Note: we have to repeatedly clear out the gradients after each step using .zero_grad(), since otherwise
 # they are accumulated (useful for minibatches - accumualte gradients across all items in the minibatch)
+
+
+# Consider:
+x1 = torch.tensor([1., 2., 3.], requires_grad=True) 
+x2 = torch.tensor([4., 5., 6.], requires_grad=True) 
+x_batch  = torch.stack((x1, x2))
+print(x_batch)
+# tensor([[1., 2., 3.],
+#         [4., 5., 6.]])
+print(x_batch.size()) #  torch.Size([2, 3])
+
+y = 2 * x_batch
+
+z = y.sum()
+print(z) # tensor(42.)  - i.e. 2*(1+...+6) = 2*6*7/2 = 6*7 = 42
+
+z.backward()
+print('\n')
+print(x1.grad)  # tensor([2., 2., 2.])
+print(x2.grad)  # tensor([2., 2., 2.])
+
+print('\n')
+print(z.requires_grad, z.grad)  # True None
+print(y.requires_grad, y.grad)  # True None
+print(x_batch.requires_grad, x_batch.grad)  # True None
+# The gradients above are None (even though requires_grad is True) since these parts of the computation graph
+# did not involve any trainable parameters, even though we can perfectly well calculate the gradient of z
+# wrt y or x_batch
+
+
+# Now show gradients in x1 & x2 being accumulated
+print('\n')
+x3 = torch.tensor([4., 5., 6.], requires_grad=True) 
+for x in [x1, x2, x3]:
+    y = 3 * x
+    z1 = y.sum()
+    z1.backward()
+    print(x.grad)
+
+# gradients:
+# tensor([5., 5., 5.])
+# tensor([5., 5., 5.])
+# tensor([3., 3., 3.])
+
+# So since the x1 & x2 objects were not changed (or had their gradient buffers zero'd) before the for loop above,
+# the gradient from the for loop is accumulated (added) to that from the previous code - hence they have gradient 5.
+# The fresh vector x3 was not used in the prior code and so its gradient is 3.
+
+
+# Note it is possible to retain intermediate gradients (e.g. of z, y , x_batch above) across .backward() calls (which otherwise removes them)
+x = torch.tensor([1., 2., 3.], requires_grad=True)
+
+y = 1.5 * x
+y.retain_grad()
+
+z = y.sum()
+z.retain_grad()
+
+# We also show gradients accumualting over .backward() calls
+z.backward(retain_graph=True)
+z.backward(retain_graph=True)
+z.backward(retain_graph=True)
+
+print('\n')
+print(x.grad)  # tensor([4.5000, 4.5000, 4.5000])
+print(y.grad)  # tensor([3., 3., 3.])
+print(z.grad)  # tensor(3.)
+
+z.backward()
+print('\n')
+print(x.grad)  # tensor([6., 6., 6.])
+print(y.grad)  # tensor([4., 4., 4.])
+print(z.grad)  # tensor(4.)
+
+# Note: by default, after a .backward() pass only accumulates gradients at the leaf nodes of 
+# the computation graph:
+w = torch.tensor(2., requires_grad=True)
+x1 = torch.tensor([1.0, 1.5, 2.7], requires_grad=True)
+y1 = w * x1     # so w and x1 are leaf nodes
+z1 = y1.sum()
+z1.backward()
+print('\n')
+print(w.grad) # tensor(5.2000) - i.e. 1 + 1.5 + 2.7 = 5.2
+print(x1.grad) # tensor([2., 2., 2.])
