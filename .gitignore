@@ -1,4 +1,7 @@
 .vscode
 *.tar.gz
+*.zip
 *.pth
 /60-Minute-Blitz/data
+*.jpg
+*.csv
